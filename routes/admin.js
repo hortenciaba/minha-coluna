@@ -109,4 +109,69 @@ router.delete('/submissions/:id', requireAdmin, async (req, res, next) => {
   }
 });
 
+// Lista todas as contas de pacientes (inclusive quem só fez check-ins de evolução, sem responder o checklist)
+router.get('/patients', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM submissions s WHERE s.patient_id = p.id) AS submissions_count,
+        (SELECT COUNT(*) FROM checkins c WHERE c.patient_id = p.id) AS checkins_count
+      FROM patients p
+      ORDER BY p.created_at DESC
+    `);
+    const data = result.rows.map((r) => ({
+      id: r.id,
+      name: decrypt(r.name_enc),
+      email: decrypt(r.email_enc),
+      phone: decrypt(r.phone_enc),
+      createdAt: r.created_at,
+      submissionsCount: Number(r.submissions_count),
+      checkinsCount: Number(r.checkins_count),
+    }));
+    await pool.query('INSERT INTO audit_log (actor, action, ip) VALUES ($1, $2, $3)', [req.admin.username, 'list_patients', req.ip]);
+    res.json({ patients: data });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Evolução (check-ins semanais) de uma conta de paciente específica
+router.get('/patients/:id', requireAdmin, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const patientResult = await pool.query('SELECT * FROM patients WHERE id = $1', [id]);
+    if (patientResult.rowCount === 0) return res.status(404).json({ error: 'Conta não encontrada.' });
+    const p = patientResult.rows[0];
+
+    const checkinsResult = await pool.query('SELECT * FROM checkins WHERE patient_id = $1 ORDER BY created_at ASC', [id]);
+    const submissionsResult = await pool.query('SELECT id, self_score, self_category, started_at, updated_at FROM submissions WHERE patient_id = $1 ORDER BY started_at ASC', [id]);
+
+    await pool.query('INSERT INTO audit_log (actor, action, target_id, ip) VALUES ($1, $2, $3, $4)', [req.admin.username, 'view_patient', id, req.ip]);
+    res.json({
+      id: p.id,
+      name: decrypt(p.name_enc),
+      email: decrypt(p.email_enc),
+      phone: decrypt(p.phone_enc),
+      createdAt: p.created_at,
+      checkins: checkinsResult.rows.map((c) => ({
+        painScore: c.pain_score,
+        movementScore: c.movement_score,
+        confidenceScore: c.confidence_score,
+        sleepScore: c.sleep_score,
+        qolScore: c.qol_score,
+        createdAt: c.created_at,
+      })),
+      submissions: submissionsResult.rows.map((s) => ({
+        id: s.id,
+        selfScore: s.self_score,
+        selfCategory: s.self_category,
+        startedAt: s.started_at,
+        updatedAt: s.updated_at,
+      })),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
