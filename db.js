@@ -34,6 +34,21 @@ async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS checkins (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email_enc TEXT NOT NULL,
+      phone_enc TEXT NOT NULL,
+      answers_enc TEXT NOT NULL,
+      pain_score INTEGER,
+      movement_score INTEGER,
+      confidence_score INTEGER,
+      sleep_score INTEGER,
+      qol_score INTEGER,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
