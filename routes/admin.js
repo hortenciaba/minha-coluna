@@ -67,6 +67,7 @@ router.get('/submissions/:id', requireAdmin, async (req, res, next) => {
       alertAnswers: r.alert_answers_enc ? JSON.parse(decrypt(r.alert_answers_enc)) : null,
       alertSummary: r.alert_summary_enc ? decrypt(r.alert_summary_enc) : null,
       selfAnswers: r.self_answers_enc ? JSON.parse(decrypt(r.self_answers_enc)) : null,
+      selfOtherText: r.self_other_text_enc ? JSON.parse(decrypt(r.self_other_text_enc)) : null,
       selfScore: r.self_score,
       selfCategory: r.self_category,
       observations: r.observations_enc ? decrypt(r.observations_enc) : null,
