@@ -1,19 +1,20 @@
 const express = require('express');
 const { pool } = require('../db');
 const { encrypt, decrypt } = require('../crypto');
+const { requirePatient } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Cria um novo check-in semanal, identificado por e-mail + telefone
-router.post('/', async (req, res, next) => {
+// Cria um novo check-in semanal — exige que o paciente esteja logado na conta
+router.post('/', requirePatient, async (req, res, next) => {
   try {
     const { email, phone, answers, painScore, movementScore, confidenceScore, sleepScore, qolScore } = req.body || {};
     if (!email || !phone) return res.status(400).json({ error: 'E-mail e telefone são obrigatórios.' });
     if (!answers) return res.status(400).json({ error: 'Respostas do check-in são obrigatórias.' });
 
     await pool.query(
-      `INSERT INTO checkins (email_enc, phone_enc, answers_enc, pain_score, movement_score, confidence_score, sleep_score, qol_score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO checkins (email_enc, phone_enc, answers_enc, pain_score, movement_score, confidence_score, sleep_score, qol_score, patient_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         encrypt(String(email).trim()),
         encrypt(String(phone).trim()),
@@ -23,6 +24,7 @@ router.post('/', async (req, res, next) => {
         confidenceScore ?? null,
         sleepScore ?? null,
         qolScore ?? null,
+        req.patientId,
       ]
     );
 

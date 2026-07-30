@@ -58,6 +58,23 @@ router.get('/submissions/:id', requireAdmin, async (req, res, next) => {
     const result = await pool.query('SELECT * FROM submissions WHERE id = $1', [id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Não encontrado.' });
     const r = result.rows[0];
+
+    let checkins = [];
+    if (r.patient_id) {
+      const checkinsResult = await pool.query(
+        'SELECT * FROM checkins WHERE patient_id = $1 ORDER BY created_at ASC',
+        [r.patient_id]
+      );
+      checkins = checkinsResult.rows.map((c) => ({
+        painScore: c.pain_score,
+        movementScore: c.movement_score,
+        confidenceScore: c.confidence_score,
+        sleepScore: c.sleep_score,
+        qolScore: c.qol_score,
+        createdAt: c.created_at,
+      }));
+    }
+
     await pool.query('INSERT INTO audit_log (actor, action, target_id, ip) VALUES ($1, $2, $3, $4)', [req.admin.username, 'view_submission', id, req.ip]);
     res.json({
       id: r.id,
@@ -73,6 +90,8 @@ router.get('/submissions/:id', requireAdmin, async (req, res, next) => {
       observations: r.observations_enc ? decrypt(r.observations_enc) : null,
       startedAt: r.started_at,
       updatedAt: r.updated_at,
+      hasAccount: !!r.patient_id,
+      checkins,
     });
   } catch (e) {
     next(e);

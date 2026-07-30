@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { encrypt, decrypt, hashToken } = require('../crypto');
-const { requireWriteToken } = require('../middleware/auth');
+const { requireWriteToken, optionalPatient } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,8 +10,8 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Cria um novo registro quando o paciente começa o checklist
-router.post('/', async (req, res, next) => {
+// Cria um novo registro quando o paciente começa o checklist (vincula à conta, se estiver logado)
+router.post('/', optionalPatient, async (req, res, next) => {
   try {
     const { name, email, phone, consent } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
@@ -22,10 +22,10 @@ router.post('/', async (req, res, next) => {
     const writeToken = crypto.randomBytes(24).toString('hex');
 
     const result = await pool.query(
-      `INSERT INTO submissions (write_token_hash, name_enc, email_enc, phone_enc, consent_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO submissions (write_token_hash, name_enc, email_enc, phone_enc, consent_at, patient_id)
+       VALUES ($1, $2, $3, $4, now(), $5)
        RETURNING id`,
-      [hashToken(writeToken), encrypt(String(name).trim()), encrypt(String(email).trim()), encrypt(String(phone).trim())]
+      [hashToken(writeToken), encrypt(String(name).trim()), encrypt(String(email).trim()), encrypt(String(phone).trim()), req.patientId || null]
     );
 
     res.status(201).json({ id: result.rows[0].id, writeToken });
@@ -97,6 +97,34 @@ router.delete('/:id', requireWriteToken, async (req, res, next) => {
     const { id } = req.params;
     await pool.query('DELETE FROM submissions WHERE id = $1', [id]);
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Histórico de pontuação da Autoavaliação para o próprio paciente (por e-mail + telefone)
+router.post('/history', async (req, res, next) => {
+  try {
+    const { email, phone } = req.body || {};
+    if (!email || !phone) return res.status(400).json({ error: 'Informe e-mail e telefone.' });
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedPhone = String(phone).replace(/\D/g, '');
+
+    const result = await pool.query('SELECT * FROM submissions ORDER BY updated_at ASC');
+    const history = result.rows
+      .filter((r) => {
+        const rowEmail = decrypt(r.email_enc).trim().toLowerCase();
+        const rowPhone = decrypt(r.phone_enc).replace(/\D/g, '');
+        return rowEmail === normalizedEmail && rowPhone === normalizedPhone;
+      })
+      .map((r) => ({
+        selfScore: r.self_score,
+        selfCategory: r.self_category,
+        updatedAt: r.updated_at,
+      }));
+
+    res.json({ history });
   } catch (e) {
     next(e);
   }

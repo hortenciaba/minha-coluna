@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const submissionsRouter = require('./routes/submissions');
 const adminRouter = require('./routes/admin');
 const checkinsRouter = require('./routes/checkins');
+const patientsRouter = require('./routes/patients');
 const { initDb } = require('./db');
 
 const app = express();
@@ -33,10 +34,12 @@ const loginLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login. Tente novamente mais tarde.' },
 });
 app.use('/api/admin/login', loginLimiter);
+app.use('/api/patients/login', loginLimiter);
 
 app.use('/api/submissions', submissionsRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/checkins', checkinsRouter);
+app.use('/api/patients', patientsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

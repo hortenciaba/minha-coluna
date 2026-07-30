@@ -48,6 +48,26 @@ async function initDb() {
     );
   `);
 
+  // Contas de paciente (e-mail + senha) para login e acompanhamento de evolução
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS patients (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email_hash TEXT UNIQUE NOT NULL,
+      email_enc TEXT NOT NULL,
+      name_enc TEXT NOT NULL,
+      phone_enc TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  await pool.query(`
+    ALTER TABLE submissions ADD COLUMN IF NOT EXISTS patient_id UUID REFERENCES patients(id);
+  `);
+  await pool.query(`
+    ALTER TABLE checkins ADD COLUMN IF NOT EXISTS patient_id UUID REFERENCES patients(id);
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id SERIAL PRIMARY KEY,
