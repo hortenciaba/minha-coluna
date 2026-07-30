@@ -47,6 +47,7 @@ router.patch('/:id', requireWriteToken, async (req, res, next) => {
     if (patch.alertAnswers !== undefined) { sets.push(`alert_answers_enc = $${i++}`); values.push(encrypt(JSON.stringify(patch.alertAnswers))); }
     if (patch.alertSummary !== undefined) { sets.push(`alert_summary_enc = $${i++}`); values.push(encrypt(patch.alertSummary)); }
     if (patch.selfAnswers !== undefined) { sets.push(`self_answers_enc = $${i++}`); values.push(encrypt(JSON.stringify(patch.selfAnswers))); }
+    if (patch.selfOtherText !== undefined) { sets.push(`self_other_text_enc = $${i++}`); values.push(encrypt(JSON.stringify(patch.selfOtherText))); }
     if (patch.selfScore !== undefined) { sets.push(`self_score = $${i++}`); values.push(patch.selfScore); }
     if (patch.selfCategory !== undefined) { sets.push(`self_category = $${i++}`); values.push(patch.selfCategory); }
     if (patch.observations !== undefined) { sets.push(`observations_enc = $${i++}`); values.push(encrypt(patch.observations)); }
@@ -78,6 +79,7 @@ router.get('/:id', requireWriteToken, async (req, res, next) => {
       alertAnswers: r.alert_answers_enc ? JSON.parse(decrypt(r.alert_answers_enc)) : null,
       alertSummary: r.alert_summary_enc ? decrypt(r.alert_summary_enc) : null,
       selfAnswers: r.self_answers_enc ? JSON.parse(decrypt(r.self_answers_enc)) : null,
+      selfOtherText: r.self_other_text_enc ? JSON.parse(decrypt(r.self_other_text_enc)) : null,
       selfScore: r.self_score,
       selfCategory: r.self_category,
       observations: r.observations_enc ? decrypt(r.observations_enc) : null,
