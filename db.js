@@ -30,6 +30,10 @@ async function initDb() {
   `);
 
   await pool.query(`
+    ALTER TABLE submissions ADD COLUMN IF NOT EXISTS self_other_text_enc TEXT;
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
